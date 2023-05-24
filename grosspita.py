@@ -29,6 +29,33 @@ class GrossPitaevskiiProblem:
         self.iterations = iterations
         self.interacting_system = interacting_system
 
+    def evolution(self):
+        if self.interacting_system:
+            interaction = self.scattering_length * self.particle_number
+        else:
+            interaction = 0
+
+        r_vector = np.arange(0., self.grid_size, self.grid_step)
+        psi = self.ansatz()
+        mu = np.zeros(len(r_vector))
+        psi0 = psi
+        for i in range(self.iterations):
+            normalization = self.simpson_integral(psi0 ** 2, self.grid_step)
+            psi0 = psi0 / np.sqrt(normalization)
+            is_normal = self.simpson_integral(psi0 ** 2, self.grid_step)
+            if abs(is_normal) > 1.1:
+                raise ValueError(f"Wave function is not normalized, Normalization: {is_normal}")
+            ddpsi = self.second_derivative(psi0, self.grid_step)
+            mu = self._calculate_mu(r_vector=r_vector, 
+                                    psi=psi0, 
+                                    dpsi=ddpsi, 
+                                    interaction=interaction)
+            psi = psi0 - self.time_step * mu * psi0
+            psi0 = psi
+        normalization = self.simpson_integral(psi0 ** 2, self.grid_step)
+        psi0 = psi0 / np.sqrt(normalization)
+        return psi0
+
     def integrate_problem(self):
         if self.interacting_system:
             interaction = self.scattering_length * self.particle_number
@@ -42,58 +69,56 @@ class GrossPitaevskiiProblem:
             psi = self.ansatz()
 
             mu = np.zeros(len(r_vector))
-            energy = np.zeros(self.iterations)
-            kinetic_energy = np.zeros(self.iterations)
-            harmonic_potential_energy = np.zeros(self.iterations)
-            interaction_energy = np.zeros(self.iterations)
-            radii = np.zeros(self.iterations)
-            kinetic_term = np.zeros(len(r_vector))
-            harmonic_potential_term = np.zeros(len(r_vector))
-            interaction_energy_term = np.zeros(len(r_vector))
-            radii_term = np.zeros(len(r_vector))
+            # energy = np.zeros(self.iterations)
+            # kinetic_energy = np.zeros(self.iterations)
+            # harmonic_potential_energy = np.zeros(self.iterations)
+            # interaction_energy = np.zeros(self.iterations)
+            # radii = np.zeros(self.iterations)
+            # kinetic_term = np.zeros(len(r_vector))
+            # harmonic_potential_term = np.zeros(len(r_vector))
+            # interaction_energy_term = np.zeros(len(r_vector))
+            # radii_term = np.zeros(len(r_vector))
 
             for i in range(self.iterations):
                 normalization = self.simpson_integral(psi ** 2, self.grid_step)
                 print(f"Normalization: {normalization}")
                 psi = psi / np.sqrt(normalization)
-                print(psi)
-                is_normal = self.simpson_integral(psi ** 2, self.grid_step)
-                print(f"Normalization2: {is_normal}")  # Works up to here 100%
                 ddpsi = self.second_derivative(psi, self.grid_step)
-                mu = self._calculate_mu(r_vector=r_vector, psi=psi, dpsi=ddpsi)
-                for i, x in enumerate(r_vector):
-                    kinetic_term[i] = -0.5 * psi * ddpsi
-                    harmonic_potential_term[i] = 0.5 * psi ** 2 * x ** 2
-                    interaction_energy_term[i] = interaction / 2 * psi ** 4 / x ** 2
-                    radii_term[i] = r_vector**2 * x**2
+                mu = self._calculate_mu(r_vector=r_vector, psi=psi, dpsi=ddpsi, interaction=interaction)
+                # for i, x in enumerate(r_vector):
+                #     harmonic_potential_term[i] = 0.5 * psi[i] ** 2 * x ** 2
+                #     if i == 0:
+                #         interaction_energy_term[i] = 0
+                #         continue
+                #     interaction_energy_term[i] = interaction / 2 * psi[i] ** 4 / x ** 2
 
-                kinetic_energy[i] = self.simpson_integral(
-                    kinetic_term, self.grid_step
-                )
+                # kinetic_energy[i] = self.simpson_integral(
+                #     -0.5 * psi * ddpsi, self.grid_step
+                # )
 
-                harmonic_potential_energy[i] = self.simpson_integral(
-                    harmonic_potential_term, self.grid_step
-                )
-                interaction_energy[i] = self.simpson_integral(
-                    interaction_energy_term, self.grid_step
-                )
-                energy[i] = (
-                    kinetic_energy[i] 
-                    + harmonic_potential_energy[i]
-                    + interaction_energy[i]
-                )
+                # harmonic_potential_energy[i] = self.simpson_integral(
+                #     harmonic_potential_term, self.grid_step
+                # )
+                # interaction_energy[i] = self.simpson_integral(
+                #     interaction_energy_term, self.grid_step
+                # )
+                # energy[i] = (
+                #     kinetic_energy[i] 
+                #     + harmonic_potential_energy[i]
+                #     + interaction_energy[i]
+                # )
                 
-                radii[i] = self.simpson_integral(radii_term, self.grid_step)
-                csv_writer.writerow([energy[i],
-                                    kinetic_energy[i],
-                                    harmonic_potential_energy[i],
-                                    interaction_energy[i],
-                                    radii[i]]
-                                    )
+                # radii[i] = self.simpson_integral(radii_term, self.grid_step)
+                # csv_writer.writerow([energy[i],
+                #                     kinetic_energy[i],
+                #                     harmonic_potential_energy[i],
+                #                     interaction_energy[i],
+                #                     radii[i]]
+                #                     )
                 psi = psi - self.time_step * mu * psi
         return 0
 
-    def _calculate_mu(self, r_vector, psi, dpsi):
+    def _calculate_mu(self, r_vector, psi, dpsi, interaction):
         """Method to calculate the chemical potential
 
         Args:
@@ -106,19 +131,22 @@ class GrossPitaevskiiProblem:
         """
         mu = np.zeros(len(r_vector))
         for i, x in enumerate(r_vector):
+            if i == 0:
+                mu[i] = 0
+                continue
             mu[i] = (
                 - 0.5 * dpsi[i] / psi[i]
                 + 0.5 * x ** 2 * psi[i]
-                + 0.5 * self.scattering_length * self.particle_number * psi[i] ** 2
+                + 0.5 * interaction * psi[i] ** 2
             )
         return mu
 
     @staticmethod
     def second_derivative(f, h):
         derivative = np.zeros(len(f))
-        for i,_ in enumerate(f):
+        for i, _ in enumerate(f):
             if i == 0:
-                derivative[i] = (f[i + 1] - 2 * f[i]) / (h ** 2)
+                derivative[i] = 0
             elif i == len(f) - 1:
                 derivative[i] = (f[i - 1] - 2 * f[i]) / (h ** 2)
             else:
@@ -145,7 +173,7 @@ class GrossPitaevskiiProblem:
         r = np.arange(0, self.grid_size, self.grid_step)
         psi = np.zeros(len(r))
         cvar = 2 * np.sqrt(self.sigma) ** 3 / np.sqrt(np.sqrt(np.pi))
-        psi = cvar*np.exp(-0.5*self.sigma**2*r**2)
+        psi = cvar*r*np.exp(-0.5*self.sigma**2*r**2)
         return psi
 
     def __str__(self) -> str:
