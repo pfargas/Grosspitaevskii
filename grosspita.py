@@ -34,7 +34,11 @@ class GrossPitaevskiiProblem:
         self.evolved_psi = np.zeros(len(self.discreted_r))
         self.evolved_ddpsi = np.zeros(len(self.discreted_r))
         self.mu = np.zeros(len(self.discreted_r))
-        self.interaction = self.scattering_length * self.particle_number if self.interacting_system else 0
+        self.interaction = (
+            self.scattering_length * self.particle_number
+            if self.interacting_system
+            else 0
+        )
         self._has_evolved = False
 
     def evolution(self):
@@ -46,15 +50,19 @@ class GrossPitaevskiiProblem:
             psi0 = psi0 / np.sqrt(normalization)
             is_normal = self.trapezoidal_integral(psi0 ** 2, self.grid_step)
             if abs(is_normal) > 1.1:
-                raise ValueError(f"Wave function is not normalized, Normalization: {is_normal}")
+                raise ValueError(
+                    f"Wave function is not normalized, Normalization: {is_normal}"
+                )
             ddpsi = self.second_derivative(psi0, self.grid_step)
-            mu = self._calculate_mu(r_vector=self.discreted_r, 
-                                    psi=psi0,
-                                    dpsi=ddpsi, 
-                                    interaction=self.interaction,
-                                    thomas_fermi=self.thomas_fermi)
+            mu = self._calculate_mu(
+                r_vector=self.discreted_r,
+                psi=psi0,
+                dpsi=ddpsi,
+                interaction=self.interaction,
+                thomas_fermi=self.thomas_fermi,
+            )
 
-            for j,psi_term in enumerate(psi0):
+            for j, psi_term in enumerate(psi0):
                 if j == 0:
                     continue
                 psi[j] = psi_term - self.time_step * mu[j] * psi_term
@@ -85,9 +93,9 @@ class GrossPitaevskiiProblem:
                 mu[i] = 0
                 continue
             mu[i] = (
-                - kinetic_coefficient * dpsi[i] / psi[i]
+                -kinetic_coefficient * dpsi[i] / psi[i]
                 + 0.5 * x ** 2
-                + interaction * (psi[i]/r_vector[i]) ** 2
+                + interaction * (psi[i] / r_vector[i]) ** 2
             )
         return mu
 
@@ -139,33 +147,43 @@ class GrossPitaevskiiProblem:
         psi = np.zeros(len(r))
         cvar = 2 * np.sqrt(self.sigma) ** 3 / np.sqrt(np.sqrt(np.pi))
         for i, x in enumerate(r):
-            psi[i] = cvar*x*np.exp(-0.5*self.sigma**2*x**2)
+            psi[i] = cvar * x * np.exp(-0.5 * self.sigma ** 2 * x ** 2)
         return psi
 
     @property
     def kinetic_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return -0.5 * self.trapezoidal_integral(self.evolved_ddpsi[1:] * self.evolved_psi[1:], self.grid_step)
-    
+        return -0.5 * self.trapezoidal_integral(
+            self.evolved_ddpsi[1:] * self.evolved_psi[1:], self.grid_step
+        )
+
     @property
     def trap_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return 0.5 * self.trapezoidal_integral(self.discreted_r[1:]**2 * self.evolved_psi[1:]**2, self.grid_step)
-    
+        return 0.5 * self.trapezoidal_integral(
+            self.discreted_r[1:] ** 2 * self.evolved_psi[1:] ** 2, self.grid_step
+        )
+
     @property
     def interaction_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return 0.5 * self.interaction * self.trapezoidal_integral(self.evolved_psi[1:]**4/self.discreted_r[1:]**2, self.grid_step)
-    
+        return (
+            0.5
+            * self.interaction
+            * self.trapezoidal_integral(
+                self.evolved_psi[1:] ** 4 / self.discreted_r[1:] ** 2, self.grid_step
+            )
+        )
+
     @property
     def potential_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
         return self.trap_term + self.interaction_term
-    
+
     @property
     def energy(self):
         if not self._has_evolved:
@@ -176,25 +194,31 @@ class GrossPitaevskiiProblem:
     def density(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return (self.evolved_psi[1:]/self.discreted_r[1:])**2*(1/(4*np.pi))
-    
+        return (self.evolved_psi[1:] / self.discreted_r[1:]) ** 2 * (1 / (4 * np.pi))
+
     @property
     def virial(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return 2*self.kinetic_term - 2 * self.trap_term + 3 * self.interaction_term
+        return 2 * self.kinetic_term - 2 * self.trap_term + 3 * self.interaction_term
 
     @property
     def radius(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return np.sqrt(self.trapezoidal_integral(self.evolved_psi[1:]**2*self.discreted_r[1:]**2, self.grid_step))
-    
+        return np.sqrt(
+            self.trapezoidal_integral(
+                self.evolved_psi[1:] ** 2 * self.discreted_r[1:] ** 2, self.grid_step
+            )
+        )
+
     def check_density_normalization(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return self.trapezoidal_integral(self.density*4*np.pi*self.discreted_r[1:]**2, self.grid_step)
-    
+        return self.trapezoidal_integral(
+            self.density * 4 * np.pi * self.discreted_r[1:] ** 2, self.grid_step
+        )
+
     def __str__(self) -> str:
         return f"{self.particle_number} Bosons in a spherical trap \n r-grid in {self.grid_size} points, r-step {self.grid_step} \n A0={self.scattering_length}, sigma={self.sigma} \n time={self.time_step}, number-iter={self.iterations}"
 
