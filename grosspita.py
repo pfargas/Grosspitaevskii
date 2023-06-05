@@ -1,3 +1,5 @@
+from typing import Any
+from typing_extensions import SupportsIndex
 from tqdm import tqdm
 
 import numpy as np
@@ -87,7 +89,7 @@ class GrossPitaevskiiProblem:
             float: chemical potential
         """
         mu = np.zeros(len(r_vector))
-        kinetic_coefficient = 0.000000000001 if thomas_fermi else 0.5
+        kinetic_coefficient = 0.000000000000001 if thomas_fermi else 0.5
         for i, x in enumerate(r_vector):
             if i == 0:
                 mu[i] = 0
@@ -221,7 +223,6 @@ class GrossPitaevskiiProblem:
 
     def __str__(self) -> str:
         return f"{self.particle_number} Bosons in a spherical trap \n r-grid in {self.grid_size} points, r-step {self.grid_step} \n A0={self.scattering_length}, sigma={self.sigma} \n time={self.time_step}, number-iter={self.iterations}"
-
 
 if __name__ == "__main__":
     # Create a problem instance
