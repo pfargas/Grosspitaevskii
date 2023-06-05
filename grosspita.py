@@ -46,9 +46,9 @@ class GrossPitaevskiiProblem:
         mu = np.zeros(len(self.discreted_r))
         psi0 = psi
         for _ in tqdm(range(self.iterations)):
-            normalization = self.trapezoidal_integral(psi0 ** 2, self.grid_step)
+            normalization = self.simpson_integral(psi0 ** 2, self.grid_step)
             psi0 = psi0 / np.sqrt(normalization)
-            is_normal = self.trapezoidal_integral(psi0 ** 2, self.grid_step)
+            is_normal = self.simpson_integral(psi0 ** 2, self.grid_step)
             if abs(is_normal) > 1.1:
                 raise ValueError(
                     f"Wave function is not normalized, Normalization: {is_normal}"
@@ -67,13 +67,13 @@ class GrossPitaevskiiProblem:
                     continue
                 psi[j] = psi_term - self.time_step * mu[j] * psi_term
             psi0 = psi
-        normalization = self.trapezoidal_integral(psi0 ** 2, self.grid_step)
+        normalization = self.simpson_integral(psi0 ** 2, self.grid_step)
         psi0 = psi0 / np.sqrt(normalization)
         self.evolved_psi = psi0
         self.evolved_ddpsi = self.second_derivative(self.evolved_psi, self.grid_step)
         self.mu = mu
         self._has_evolved = True
-        return self.trapezoidal_integral(mu * psi0 ** 2, self.grid_step)
+        return self.simpson_integral(mu * psi0 ** 2, self.grid_step)
 
     def _calculate_mu(self, r_vector, psi, dpsi, interaction, thomas_fermi=False):
         """Method to calculate the chemical potential
@@ -154,7 +154,7 @@ class GrossPitaevskiiProblem:
     def kinetic_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return -0.5 * self.trapezoidal_integral(
+        return -0.5 * self.simpson_integral(
             self.evolved_ddpsi[1:] * self.evolved_psi[1:], self.grid_step
         )
 
@@ -162,7 +162,7 @@ class GrossPitaevskiiProblem:
     def trap_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return 0.5 * self.trapezoidal_integral(
+        return 0.5 * self.simpson_integral(
             self.discreted_r[1:] ** 2 * self.evolved_psi[1:] ** 2, self.grid_step
         )
 
@@ -173,7 +173,7 @@ class GrossPitaevskiiProblem:
         return (
             0.5
             * self.interaction
-            * self.trapezoidal_integral(
+            * self.simpson_integral(
                 self.evolved_psi[1:] ** 4 / self.discreted_r[1:] ** 2, self.grid_step
             )
         )
@@ -207,7 +207,7 @@ class GrossPitaevskiiProblem:
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
         return np.sqrt(
-            self.trapezoidal_integral(
+            self.simpson_integral(
                 self.evolved_psi[1:] ** 2 * self.discreted_r[1:] ** 2, self.grid_step
             )
         )
@@ -215,7 +215,7 @@ class GrossPitaevskiiProblem:
     def check_density_normalization(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return self.trapezoidal_integral(
+        return self.simpson_integral(
             self.density * 4 * np.pi * self.discreted_r[1:] ** 2, self.grid_step
         )
 
