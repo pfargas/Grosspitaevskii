@@ -1,8 +1,8 @@
 from typing import Any
-from typing_extensions import SupportsIndex
-from tqdm import tqdm
 
 import numpy as np
+from tqdm import tqdm
+from typing_extensions import SupportsIndex
 
 
 class GrossPitaevskiiProblem:
@@ -61,7 +61,6 @@ class GrossPitaevskiiProblem:
                 psi=psi0,
                 dpsi=ddpsi,
                 interaction=self.interaction,
-                thomas_fermi=self.thomas_fermi,
             )
 
             for j, psi_term in enumerate(psi0):
@@ -77,7 +76,7 @@ class GrossPitaevskiiProblem:
         self._has_evolved = True
         return self.simpson_integral(mu * psi0 ** 2, self.grid_step)
 
-    def _calculate_mu(self, r_vector, psi, dpsi, interaction, thomas_fermi=False):
+    def _calculate_mu(self, r_vector, psi, dpsi, interaction):
         """Method to calculate the chemical potential
 
         Args:
@@ -89,7 +88,7 @@ class GrossPitaevskiiProblem:
             float: chemical potential
         """
         mu = np.zeros(len(r_vector))
-        kinetic_coefficient = 0.000000000000001 if thomas_fermi else 0.5
+        kinetic_coefficient = 0.000000000000001 if self.thomas_fermi else 0.5
         for i, x in enumerate(r_vector):
             if i == 0:
                 mu[i] = 0
@@ -156,7 +155,8 @@ class GrossPitaevskiiProblem:
     def kinetic_term(self):
         if not self._has_evolved:
             raise ValueError("System has not evolved yet")
-        return -0.5 * self.simpson_integral(
+        kinetic_coefficient = 0.000000000000001 if self.thomas_fermi else 0.5
+        return -kinetic_coefficient * self.simpson_integral(
             self.evolved_ddpsi[1:] * self.evolved_psi[1:], self.grid_step
         )
 
