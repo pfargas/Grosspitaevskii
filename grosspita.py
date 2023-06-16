@@ -47,7 +47,7 @@ class GrossPitaevskiiProblem:
         psi = self.ansatz()
         mu = np.zeros(len(self.discreted_r))
         psi0 = psi
-        for _ in tqdm(range(self.iterations)):
+        for _ in tqdm(range(self.iterations), position=0, leave=True):
             normalization = self.simpson_integral(psi0 ** 2, self.grid_step)
             psi0 = psi0 / np.sqrt(normalization)
             is_normal = self.simpson_integral(psi0 ** 2, self.grid_step)
